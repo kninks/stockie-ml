@@ -29,10 +29,13 @@ class PredictService:
         for stock in stocks:
             await self.load_model_with_path(stock.model_path)
             await self.load_scaler_with_path(stock.scaler_path)
-            normalized_predicted_prices = await self.normalized_closing_prices(
+            normalized_closing_prices = await self.normalize_prices(
                 stock.closing_prices
             )
-            predicted_prices = await self.denormalized_predicted_prices(
+            normalized_predicted_prices = await self.run_inference(
+                normalized_closing_prices=normalized_closing_prices
+            )
+            predicted_prices = await self.denormalize_prices(
                 normalized_predicted_prices
             )
             response_list.append(
@@ -50,7 +53,7 @@ class PredictService:
         """
         load model with path
         :param model_path:
-        :return:
+        :return None:
         """
         return None
 
@@ -60,32 +63,32 @@ class PredictService:
         """
         load scaler with path
         :param scaler_path:
-        :return:
+        :return None:
         """
         return None
 
     # TODO: normalize all closing prices in the list
     @staticmethod
-    async def normalized_closing_prices(closing_prices: List[float]) -> List[float]:
+    async def normalize_prices(prices: List[float]) -> List[float]:
         """
         call the loaded scaler to normalize a list of closing prices
-        :param closing_prices:
-        :return normalized_predicted_prices:
+        :param prices:
+        :return normalized_prices:
         """
-        return closing_prices
+        return prices
 
     # TODO: denormalize all predicted prices in the list
     @staticmethod
-    async def denormalized_predicted_prices(
-        normalized_predicted_prices: List[float],
+    async def denormalize_prices(
+        normalized_prices: List[float],
     ) -> List[float]:
         """
         call the loaded scaler to denormalize a list of closing prices
-        :param normalized_predicted_prices:
-        :return predicted_prices:
+        :param normalized_prices:
+        :return denormalized_prices:
         """
-        predicted_prices = normalized_predicted_prices
-        return predicted_prices
+        denormalized_prices = normalized_prices
+        return denormalized_prices
 
     # TODO: call the model to predict a list of closing prices
     # TODO: Raise exceptions if error occurs

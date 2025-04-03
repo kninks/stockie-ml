@@ -18,7 +18,7 @@ class SaveService:
         stock_ticker: str,
         version_tag: str,
         accuracy: float,
-        model_metadata: dict,
+        additional_data: dict,
     ) -> None:
         """
         Save the model and scaler file to Google Cloud Storage and save model metadata to the database.
@@ -31,7 +31,7 @@ class SaveService:
             accuracy=accuracy,
             model_path=model_path,
             scaler_path=scaler_path,
-            model_metadata=model_metadata,
+            additional_data=additional_data,
         )
 
     # TODO
@@ -58,7 +58,7 @@ class SaveService:
         accuracy: float,
         model_path: str,
         scaler_path: str,
-        model_metadata: Optional[dict],
+        additional_data: Optional[dict],
     ) -> None:
         await self.be_operations.save_model(
             stock_ticker=stock_ticker,
@@ -66,7 +66,7 @@ class SaveService:
             accuracy=accuracy,
             model_path=model_path,
             scaler_path=scaler_path,
-            model_metadata=model_metadata,
+            additional_data=additional_data,
         )
         """
         Save the model metadata to db by calling a backend endpoint.

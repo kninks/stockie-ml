@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 class StockToPredictRequestSchema(BaseModel):
     stock_tickers: str
-    closing_price: List[float]
+    closing_prices: List[float]
     model_path: str
     scaler_path: str
 

@@ -40,7 +40,7 @@ class StockieBEOperations:
         accuracy: float,
         model_path: str,
         scaler_path: str,
-        model_metadata: Optional[dict],
+        additional_data: Optional[dict],
     ) -> Any:
         payload = {
             "stock_ticker": stock_ticker,
@@ -48,11 +48,11 @@ class StockieBEOperations:
             "accuracy": accuracy,
             "model_path": model_path,
             "scaler_path": scaler_path,
-            "model_metadata": model_metadata,
+            "additional_data": additional_data,
         }
         return await self._make_request(
             self.client.post,
-            "/ml-models/metadata",
+            "/ml-ops/model-metadata",
             data=payload,
             error_message="Failed to save to db via backend",
         )

@@ -16,7 +16,7 @@ async def save_model_and_scaler_and_metadata_route(
     stock_ticker: str,
     version_tag: str,
     accuracy: float,
-    model_metadata: dict,
+    additional_data: dict,
     controller: SaveController = Depends(),
 ):
     """
@@ -26,7 +26,7 @@ async def save_model_and_scaler_and_metadata_route(
         stock_ticker=stock_ticker,
         version_tag=version_tag,
         accuracy=accuracy,
-        model_metadata=model_metadata,
+        additional_data=additional_data,
     )
     return success_response(data=response)
 
@@ -60,7 +60,7 @@ async def save_model_metadata_route(
     accuracy: float,
     model_path: str,
     scaler_path: str,
-    model_metadata: dict,
+    additional_data: dict,
     controller: SaveController = Depends(),
 ):
     """
@@ -72,6 +72,6 @@ async def save_model_metadata_route(
         accuracy=accuracy,
         model_path=model_path,
         scaler_path=scaler_path,
-        model_metadata=model_metadata,
+        additional_data=additional_data,
     )
     return success_response(data=response)

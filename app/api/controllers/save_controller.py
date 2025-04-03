@@ -12,13 +12,13 @@ class SaveController:
         stock_ticker: str,
         version_tag: str,
         accuracy: float,
-        model_metadata: dict,
+        additional_data: dict,
     ) -> None:
         response = await self.service.save_model_and_scaler_and_metadata(
             stock_ticker=stock_ticker,
             version_tag=version_tag,
             accuracy=accuracy,
-            model_metadata=model_metadata,
+            additional_data=additional_data,
         )
         return response
 
@@ -37,7 +37,7 @@ class SaveController:
         accuracy: float,
         model_path: str,
         scaler_path: str,
-        model_metadata: dict,
+        additional_data: dict,
     ) -> None:
         response = await self.service.save_model_metadata(
             stock_ticker=stock_ticker,
@@ -45,6 +45,6 @@ class SaveController:
             accuracy=accuracy,
             model_path=model_path,
             scaler_path=scaler_path,
-            model_metadata=model_metadata,
+            additional_data=additional_data,
         )
         return response

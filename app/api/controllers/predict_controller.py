@@ -24,19 +24,15 @@ class PredictController:
         response = await self.service.load_scaler_with_path(scaler_path=scaler_path)
         return response
 
-    async def normalized_closing_prices_controller(
-        self, closing_prices: List[float]
-    ) -> List[float]:
-        response = await self.service.normalized_closing_prices(
-            closing_prices=closing_prices
-        )
+    async def normalize_prices_controller(self, prices: List[float]) -> List[float]:
+        response = await self.service.normalize_prices(prices=prices)
         return response
 
-    async def denormalized_predicted_prices_controller(
-        self, normalized_predicted_prices: List[float]
+    async def denormalize_prices_controller(
+        self, normalized_prices: List[float]
     ) -> List[float]:
-        response = await self.service.denormalized_predicted_prices(
-            normalized_predicted_prices=normalized_predicted_prices
+        response = await self.service.denormalize_prices(
+            normalized_prices=normalized_prices
         )
         return response
 

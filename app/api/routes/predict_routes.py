@@ -52,30 +52,28 @@ async def load_scaler_with_path_controller(
     return success_response(data=response)
 
 
-@router.post("/normalized-closing-prices")
-async def normalized_closing_prices_controller(
-    closing_prices: list[float],
+@router.post("/normalize-prices")
+async def normalize_prices_controller(
+    prices: list[float],
     controller: PredictController = Depends(PredictController),
 ):
     """
     Normalize closing prices.
     """
-    response = await controller.normalized_closing_prices_controller(
-        closing_prices=closing_prices
-    )
+    response = await controller.normalize_prices_controller(prices=prices)
     return success_response(data=response)
 
 
-@router.post("/denormalized-predicted-prices")
-async def denormalized_predicted_prices_controller(
-    normalized_predicted_prices: list[float],
+@router.post("/denormalize-prices")
+async def denormalize_prices_controller(
+    normalized_prices: list[float],
     controller: PredictController = Depends(PredictController),
 ):
     """
     Denormalize predicted prices.
     """
-    response = await controller.denormalized_predicted_prices_controller(
-        normalized_predicted_prices=normalized_predicted_prices
+    response = await controller.denormalize_prices_controller(
+        normalized_prices=normalized_prices
     )
     return success_response(data=response)
 
