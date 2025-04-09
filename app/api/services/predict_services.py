@@ -9,8 +9,16 @@ from app.api.schemas.predict_schema import (
 )
 from app.core.clients.stockie_be_operations import StockieBEOperations
 
+from google.cloud import storage
+from tensorflow.keras.models import load_model
+import pickle
+import os
+import numpy as np
 
 class PredictService:
+    model = None
+    scaler = None
+
     def __init__(
         self,
         be_operations: StockieBEOperations = Depends(StockieBEOperations),
@@ -55,6 +63,17 @@ class PredictService:
         :param model_path:
         :return None:
         """
+        bucket_name, blob_path = model_path.replace("gs://", "").split("/", 1)
+        local_model_path = f"/tmp/{os.path.basename(model_path)}"
+
+        client = storage.Client()
+        bucket = client.bucket(bucket_name)
+        blob = bucket.blob(blob_path)
+        blob.download_to_filename(local_model_path)
+
+        PredictService.model = load_model(local_model_path)
+        print(f"Model loaded from {model_path}")
+
         return None
 
     # TODO: load scaler with the scaler_path
@@ -65,17 +84,56 @@ class PredictService:
         :param scaler_path:
         :return None:
         """
+        bucket_name, blob_path = scaler_path.replace("gs://", "").split("/", 1)
+        local_scaler_path = f"/tmp/{os.path.basename(scaler_path)}"
+
+        client = storage.Client()
+        bucket = client.bucket(bucket_name)
+        blob = bucket.blob(blob_path)
+        blob.download_to_filename(local_scaler_path)
+
+        # Load the scaler
+        with open(local_scaler_path, "rb") as f:
+            PredictService.scaler = pickle.load(f)
+
+        print(f"Scaler loaded from {scaler_path}")
+
         return None
 
     # TODO: normalize all closing prices in the list
     @staticmethod
-    async def normalize_prices(prices: List[float]) -> List[float]:
+    async def normalize_prices(prices: List[float], volumes: List[float]) -> np.ndarray:
         """
         call the loaded scaler to normalize a list of closing prices
         :param prices:
         :return normalized_prices:
         """
-        return prices
+        if PredictService.scaler is None:
+            raise ValueError("Scaler not loaded. Please load it before normalization.")
+        
+        if len(prices) < 60:
+            raise ValueError("Not enough data points for normalization. Need at least 60.")
+        
+        num_features = PredictService.scaler.n_features_in_
+        if num_features == 1:
+            # Only close prices
+            if len(prices) != 60:
+                raise ValueError("Expected 60 prices for input")
+            input_array = np.array(prices).reshape(-1, 1)  # shape: (60, 1)
+
+        elif num_features == 2:
+            # Close and Volume
+            if volumes is None or len(prices) != 60 or len(volumes) != 60:
+                raise ValueError("Expected 60 prices and 60 volumes for input")
+            input_array = np.column_stack((prices, volumes))  # shape: (60, 2)
+
+        else:
+            raise ValueError(f"Unsupported number of features: {num_features}")
+        
+        # Normalize and reshape to (1, 60, num_features)
+        normalized_closing_prices = PredictService.scaler.transform(input_array)
+
+        return normalized_closing_prices.reshape(1, 60, num_features)
 
     # TODO: denormalize all predicted prices in the list
     @staticmethod
@@ -87,17 +145,58 @@ class PredictService:
         :param normalized_prices:
         :return denormalized_prices:
         """
-        denormalized_prices = normalized_prices
-        return denormalized_prices
+        global scaler
+        if PredictService.scaler is None:   
+            raise ValueError("Scaler not loaded. Please load it before denormalization.")
+        
+        try:
+            num_features = PredictService.scaler.n_features_in_
+        
+            # Pad the normalized prices with zeros for other features
+            padded = np.concatenate(
+                [np.array(normalized_prices).reshape(-1, 1),
+                np.zeros((len(normalized_prices), num_features - 1))],
+                axis=1
+            )
+        
+            # Inverse transform
+            denormalized = PredictService.model.inverse_transform(padded)
+
+            # Return only the 'Close' price column
+            return denormalized[:, 0].tolist()
+
+        except Exception as e:
+            raise RuntimeError(f"Error in denormalizing prices: {e}")
 
     # TODO: call the model to predict a list of closing prices
     # TODO: Raise exceptions if error occurs
     @staticmethod
-    async def run_inference(normalized_closing_prices: List[float]) -> List[float]:
+    async def run_inference(normalized_closing_prices: List[List[float]], days_ahead: int = 16) -> List[float]:
         """
         run inference on the loaded model to predict with a list of closing prices
         :param normalized_closing_prices:
         :return normalized_predicted_prices:
         """
-        normalized_predicted_prices = normalized_closing_prices
-        return normalized_predicted_prices
+        global model
+        global scaler
+
+        try: 
+            if PredictService.model is None or PredictService.scaler is None:
+                raise ValueError("Model or scaler not loaded. Please load it before inference.")
+            
+            sequence = np.array(normalized_closing_prices)  
+            predictions = []
+
+            for _ in range(days_ahead):
+                input_seq = sequence[-60:].reshape(1, 60, PredictService.scaler.n_features_in_)
+                pred = PredictService.model.predict(input_seq)
+                pred_val = pred[0]  # shape: (1,) or (1, 1)
+
+                # Append prediction to the sequence
+                predictions.append(pred_val[0])
+                sequence = np.vstack([sequence, pred_val])  # Add predicted value to sequence
+
+            return predictions
+
+        except Exception as e:
+            print(f"Error in run_inference: {e}")
