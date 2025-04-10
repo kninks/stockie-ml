@@ -33,24 +33,20 @@ class PredictService:
         :param request:
         :return InferenceResponseSchema:
         """
-        stocks = PredictRequestSchema.stocks
         response_list = []
-        for stock in stocks:
-            await self.load_model_with_path(stock.model_path)
-            await self.load_scaler_with_path(stock.scaler_path)
-            normalized_closing_prices = await self.normalize_prices(
-                stock.closing_prices
-            )
-            normalized_predicted_prices = await self.run_inference(
-                normalized_closing_prices=normalized_closing_prices
-            )
-            predicted_prices = await self.denormalize_prices(
-                normalized_predicted_prices
-            )
+
+        for stock in request.stocks:
+            await self.load_model_with_path(model_path=stock.model_path)
+            await self.load_scaler_with_path(scaler_path=stock.scaler_path)
+
+            normalized = await self.normalize_prices(prices=stock.closing_prices)
+            predicted_normalized = await self.run_inference(normalized_closing_prices=normalized)
+            predicted = await self.denormalize_prices(normalized_prices=predicted_normalized)
+
             response_list.append(
                 StockFromPredictResponseSchema(
-                    stock_ticker=request.stock_tickers,
-                    predicted_prices=predicted_prices,
+                    stock_ticker=stock.stock_tickers,
+                    predicted_prices=predicted,
                 )
             )
 
@@ -131,10 +127,8 @@ class PredictService:
         
         # Normalize and reshape to (1, 60, num_features)
         normalized_closing_prices = PredictService.scaler.transform(input_array)
-
         return normalized_closing_prices.reshape(1, 60, num_features)
 
-    # TODO: denormalize all predicted prices in the list
     @staticmethod
     async def denormalize_prices(
         normalized_prices: List[float],
@@ -144,7 +138,6 @@ class PredictService:
         :param normalized_prices:
         :return denormalized_prices:
         """
-        global scaler
         if PredictService.scaler is None:   
             raise ValueError("Scaler not loaded. Please load it before denormalization.")
         
@@ -158,17 +151,12 @@ class PredictService:
                 axis=1
             )
         
-            # Inverse transform
-            denormalized = PredictService.model.inverse_transform(padded)
-
-            # Return only the 'Close' price column
+            denormalized = PredictService.scaler.inverse_transform(padded)
             return denormalized[:, 0].tolist()
 
         except Exception as e:
             raise RuntimeError(f"Error in denormalizing prices: {e}")
 
-    # TODO: call the model to predict a list of closing prices
-    # TODO: Raise exceptions if error occurs
     @staticmethod
     async def run_inference(normalized_closing_prices: List[List[float]], days_ahead: int = 16) -> List[float]:
         """

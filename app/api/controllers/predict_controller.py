@@ -32,7 +32,7 @@ class PredictController:
         normalized = await self.service.normalize_prices(prices=prices, volumes=volumes)
         return {
             "message": "Prices normalized successfully.",
-            # "normalized_prices": normalized.tolist()
+            "normalized_prices": normalized.tolist()
         }
 
     async def denormalize_prices_controller(
