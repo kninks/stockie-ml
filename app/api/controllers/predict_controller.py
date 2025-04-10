@@ -16,9 +16,12 @@ class PredictController:
         response = await self.service.predict(request)
         return response
 
-    async def load_model_with_path_controller(self, model_path: str) -> None:
-        response = await self.service.load_model_with_path(model_path=model_path)
-        return response
+    async def load_model_with_path_controller(self, model_path: str) -> dict:
+        await self.service.load_model_with_path(model_path=model_path)
+        return {
+            "status": "success",
+            "message": f"Model loaded from: {model_path}"
+        }
 
     async def load_scaler_with_path_controller(self, scaler_path: str) -> None:
         response = await self.service.load_scaler_with_path(scaler_path=scaler_path)

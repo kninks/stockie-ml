@@ -14,6 +14,7 @@ from tensorflow.keras.models import load_model
 import pickle
 import os
 import numpy as np
+import requests
 
 class PredictService:
     model = None
@@ -63,19 +64,20 @@ class PredictService:
         :param model_path:
         :return None:
         """
-        bucket_name, blob_path = model_path.replace("gs://", "").split("/", 1)
         local_model_path = f"/tmp/{os.path.basename(model_path)}"
-
-        client = storage.Client()
-        bucket = client.bucket(bucket_name)
-        blob = bucket.blob(blob_path)
-        blob.download_to_filename(local_model_path)
-
+        
+        response = requests.get(model_path)
+        if response.status_code == 200:
+            with open(local_model_path, "wb") as f:
+                f.write(response.content)
+            print(f"Model downloaded to: {local_model_path}")
+        else:
+            raise RuntimeError(f"Failed to download model from {model_path}, status code: {response.status_code}")
+        
         PredictService.model = load_model(local_model_path)
-        print(f"Model loaded from {model_path}")
-
+        print(f"Model loaded successfully from: {model_path}")
         return None
-
+    
     # TODO: load scaler with the scaler_path
     @staticmethod
     async def load_scaler_with_path(scaler_path: str):

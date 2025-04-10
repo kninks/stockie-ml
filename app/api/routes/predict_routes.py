@@ -35,7 +35,7 @@ async def load_model_with_path_controller(
     Load model with path.
     """
     response = await controller.load_model_with_path_controller(model_path=model_path)
-    return success_response(data=response)
+    return await success_response(data=response)
 
 
 @router.post("/load-scaler")
