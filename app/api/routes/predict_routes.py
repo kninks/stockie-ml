@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from typing import List
 
 from app.api.controllers.predict_controller import PredictController
 from app.api.schemas.predict_schema import PredictRequestSchema
@@ -80,8 +81,8 @@ async def denormalize_prices_controller(
 
 @router.post("/run-inference")
 async def run_inference(
-    normalized_closing_prices: list[float],
-    controller: PredictController = Depends(PredictController),
+    normalized_closing_prices: List[List[float]],
+    controller: PredictController = Depends(PredictController)
 ):
     """
     Run inference on the model.

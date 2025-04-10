@@ -100,7 +100,6 @@ class PredictService:
 
         return None
 
-    # TODO: normalize all closing prices in the list
     @staticmethod
     async def normalize_prices(prices: List[float], volumes: Optional[List[float]] = None) -> np.ndarray:
         """
@@ -177,26 +176,27 @@ class PredictService:
         :param normalized_closing_prices:
         :return normalized_predicted_prices:
         """
-        global model
-        global scaler
-
-        try: 
+        try:
             if PredictService.model is None or PredictService.scaler is None:
                 raise ValueError("Model or scaler not loaded. Please load it before inference.")
-            
-            sequence = np.array(normalized_closing_prices)  
+
+            sequence = np.array(normalized_closing_prices).reshape(60, -1)  # shape: (60, num_features)
             predictions = []
+            num_features = PredictService.scaler.n_features_in_
 
             for _ in range(days_ahead):
-                input_seq = sequence[-60:].reshape(1, 60, PredictService.scaler.n_features_in_)
-                pred = PredictService.model.predict(input_seq)
-                pred_val = pred[0]  # shape: (1,) or (1, 1)
+                input_seq = sequence[-60:].reshape(1, 60, num_features)
+                pred = PredictService.model.predict(input_seq)  # shape: (1,) or (1,1)
+            
+                # Get only the close price prediction (assumed to be at index 0)
+                close_pred = pred[0][0] if pred.ndim == 2 else pred[0]
+                predictions.append(close_pred)
 
-                # Append prediction to the sequence
-                predictions.append(pred_val[0])
-                sequence = np.vstack([sequence, pred_val])  # Add predicted value to sequence
+                # Pad with zeros if model expects more than 1 feature
+                next_input = [close_pred] + [0.0] * (num_features - 1)
+                sequence = np.vstack([sequence, next_input])
 
-            return predictions
-
+            return [float(pred) for pred in predictions]
         except Exception as e:
             print(f"Error in run_inference: {e}")
+            raise RuntimeError(f"Inference failed: {e}")

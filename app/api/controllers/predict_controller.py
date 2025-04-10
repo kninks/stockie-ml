@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from fastapi import Depends
 
@@ -28,10 +28,11 @@ class PredictController:
             "message": f"Scaler loaded from: {scaler_path}"
         }
 
-    async def normalize_prices_controller(self, prices: List[float]) -> List[float]:
-        await self.service.normalize_prices(prices=prices)
+    async def normalize_prices_controller(self, prices: List[float], volumes: Optional[List[float]] = None) -> dict:
+        normalized = await self.service.normalize_prices(prices=prices, volumes=volumes)
         return {
-            "message": "Successfully normalized prices"
+            "message": "Prices normalized successfully.",
+            # "normalized_prices": normalized.tolist()
         }
 
     async def denormalize_prices_controller(
