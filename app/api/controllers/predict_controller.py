@@ -29,8 +29,10 @@ class PredictController:
         }
 
     async def normalize_prices_controller(self, prices: List[float]) -> List[float]:
-        response = await self.service.normalize_prices(prices=prices)
-        return response
+        await self.service.normalize_prices(prices=prices)
+        return {
+            "message": "Successfully normalized prices"
+        }
 
     async def denormalize_prices_controller(
         self, normalized_prices: List[float]

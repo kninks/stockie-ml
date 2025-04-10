@@ -23,7 +23,7 @@ async def predict_route(
     Predict the closing price of a list of stocks with model path, scaler path, and closing prices using the ML model.
     """
     response = await controller.predict_controller(request=request)
-    return success_response(data=response)
+    return await success_response(data=response)
 
 
 @router.post("/load-model")
@@ -61,7 +61,7 @@ async def normalize_prices_controller(
     Normalize closing prices.
     """
     response = await controller.normalize_prices_controller(prices=prices)
-    return success_response(data=response)
+    return await success_response(data=response)
 
 
 @router.post("/denormalize-prices")
@@ -75,7 +75,7 @@ async def denormalize_prices_controller(
     response = await controller.denormalize_prices_controller(
         normalized_prices=normalized_prices
     )
-    return success_response(data=response)
+    return await success_response(data=response)
 
 
 @router.post("/run-inference")
@@ -89,4 +89,4 @@ async def run_inference(
     response = await controller.run_inference(
         normalized_closing_prices=normalized_closing_prices
     )
-    return success_response(data=response)
+    return await success_response(data=response)

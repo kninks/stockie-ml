@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from fastapi import Depends
 
@@ -56,7 +56,6 @@ class PredictService:
 
         return PredictResponseSchema(predictions=response_list)
 
-    # TODO: load model with the model_path
     @staticmethod
     async def load_model_with_path(model_path: str) -> None:
         """
@@ -78,7 +77,6 @@ class PredictService:
         print(f"Model loaded successfully from: {model_path}")
         return None
     
-    # TODO: load scaler with the scaler_path
     @staticmethod
     async def load_scaler_with_path(scaler_path: str):
         """
@@ -104,10 +102,10 @@ class PredictService:
 
     # TODO: normalize all closing prices in the list
     @staticmethod
-    async def normalize_prices(prices: List[float], volumes: List[float]) -> np.ndarray:
+    async def normalize_prices(prices: List[float], volumes: Optional[List[float]] = None) -> np.ndarray:
         """
         call the loaded scaler to normalize a list of closing prices
-        :param prices:
+        :param prices: [100, 101, 102, ...]
         :return normalized_prices:
         """
         if PredictService.scaler is None:
