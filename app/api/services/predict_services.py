@@ -86,19 +86,19 @@ class PredictService:
         :param scaler_path:
         :return None:
         """
-        bucket_name, blob_path = scaler_path.replace("gs://", "").split("/", 1)
         local_scaler_path = f"/tmp/{os.path.basename(scaler_path)}"
 
-        client = storage.Client()
-        bucket = client.bucket(bucket_name)
-        blob = bucket.blob(blob_path)
-        blob.download_to_filename(local_scaler_path)
-
-        # Load the scaler
+        response = requests.get(scaler_path)
+        if response.status_code == 200:
+            with open(local_scaler_path, "wb") as f:
+                f.write(response.content)
+            print(f"Scaler downloaded to: {local_scaler_path}")
+        else:
+            raise RuntimeError(f"Failed to download scaler from {scaler_path}, status code: {response.status_code}")
+        
         with open(local_scaler_path, "rb") as f:
             PredictService.scaler = pickle.load(f)
-
-        print(f"Scaler loaded from {scaler_path}")
+        print(f"Scaler loaded successfully from: {scaler_path}")
 
         return None
 

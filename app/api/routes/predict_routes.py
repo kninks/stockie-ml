@@ -49,7 +49,7 @@ async def load_scaler_with_path_controller(
     response = await controller.load_scaler_with_path_controller(
         scaler_path=scaler_path
     )
-    return success_response(data=response)
+    return await success_response(data=response)
 
 
 @router.post("/normalize-prices")
