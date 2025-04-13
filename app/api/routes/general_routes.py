@@ -17,9 +17,7 @@ router = APIRouter(
 
 @router.get("/health")
 async def health_check(user_role: str = Depends(verify_role([RoleEnum.BACKEND.value]))):
-    return success_response(
-        message="ML server is healthy", data={"role": user_role}
-    )
+    return success_response(message="ML server is healthy", data={"role": user_role})
 
 
 @router.get("/get-stockie-be-health")

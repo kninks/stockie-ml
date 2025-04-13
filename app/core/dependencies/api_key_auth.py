@@ -3,7 +3,7 @@ from fastapi.security.api_key import APIKeyHeader
 
 from app.core.common.exceptions.custom_exceptions import AuthError, ForbiddenError
 from app.core.enums.roles_enum import RoleEnum
-from app.core.settings.config import config
+from app.core.settings.config import get_config
 
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
@@ -12,7 +12,7 @@ async def verify_api_key(api_key: str = Security(api_key_header)):
     if not api_key:
         raise AuthError("API Key missing")
 
-    for role, key in config.ALLOWED_API_KEYS.items():
+    for role, key in get_config().ALLOWED_API_KEYS.items():
         if api_key == key:
             return role
 

@@ -3,15 +3,15 @@ from typing import Any, Optional
 
 import httpx
 
-from app.core.settings.config import config
+from app.core.settings.config import get_config
 
 logger = logging.getLogger(__name__)
 
 
 class StockieServiceClient:
     def __init__(self):
-        self.base_url = config.BACKEND_URL
-        self.api_key = config.BACKEND_API_KEY
+        self.base_url = get_config().BACKEND_URL
+        self.api_key = get_config().BACKEND_API_KEY
         self.headers = {"X-API-Key": self.api_key, "Content-Type": "application/json"}
 
     async def get(self, endpoint: str, params: Optional[dict[str, Any]] = None) -> Any:

@@ -2,7 +2,7 @@ import logging
 from typing import Any, Awaitable, Callable
 
 from app.core.clients.stockie_service_client import StockieServiceClient
-from app.core.common.exceptions.custom_exceptions import BackendServerError
+from app.core.common.exceptions.custom_exceptions import StockieServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class StockieServiceOperations:
             return await func(*args, **kwargs)
         except Exception as e:
             logger.error(f"{error_message}: {str(e)}")
-            raise BackendServerError(f"{error_message}: {str(e)}")
+            raise StockieServiceError(f"{error_message}: {str(e)}")
 
     async def check_health(self) -> Any:
         return await self._make_request(

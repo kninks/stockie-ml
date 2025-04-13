@@ -1,6 +1,5 @@
 from typing import cast
 
-import uvicorn
 from fastapi import FastAPI, HTTPException
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
@@ -15,9 +14,13 @@ from app.core.common.exceptions.exception_handlers import (
     starlette_http_exception_handler,
 )
 from app.core.common.middleware.logging_middleware import logging_middleware_factory
+from app.core.settings.logging_config import setup_logging
 
-# from app.core.common.middleware.role_auth_middleware import role_auth_middleware_factory
-from app.core.settings.config import config
+setup_logging("INFO")
+
+from app.core.settings.config import get_config
+
+config = get_config()
 
 app = FastAPI(
     title="Stockie ML API",
@@ -32,7 +35,7 @@ app.add_middleware(logging_middleware_factory())
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=config.ALLOWED_ORIGINS,  # Change this to restrict origins in production
+    allow_origins=config.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -49,8 +52,3 @@ app.add_exception_handler(
 
 app.include_router(general_routes.router)
 app.include_router(predict_routes.router)
-
-if __name__ == "__main__":
-    uvicorn.run(
-        "app.main:app", host="0.0.0.0", port=config.ML_SERVER_PORT, reload=False
-    )

@@ -44,7 +44,7 @@ class BackgroundJobError(CustomAPIError):
         )
 
 
-class BackendServerError(CustomAPIError):
+class StockieServiceError(CustomAPIError):
     def __init__(self, message="Error contacting Stockie Backend server"):
         super().__init__(
             status_code=ErrorCodes.SERVICE_UNAVAILABLE.value,  # 503

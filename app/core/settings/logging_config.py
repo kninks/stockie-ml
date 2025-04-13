@@ -6,13 +6,17 @@ from logging.config import dictConfig
 
 from colorlog import ColoredFormatter
 
-from app.core.settings.config import config
+from app.core.settings.config import get_config
 
 COMMON_DATEFMT = "%Y-%m-%d %H:%M:%S"
 
 
-def setup_logging():
-    log_level = logging.DEBUG if config.DEBUG else logging.INFO
+def setup_logging(log_level: str = None):
+    if log_level is None:
+        log_level = get_config().LOG_LEVEL
+
+    if isinstance(log_level, str):
+        log_level = getattr(logging, log_level.upper(), logging.INFO)
 
     log_dir = "logs"
     if not os.path.exists(log_dir):

@@ -28,7 +28,6 @@ def success_response(data=None, message="Success", status_code=ErrorCodes.SUCCES
     )
 
 
-
 def error_response(
     error_code: ErrorCodes, message="An error occurred", status_code=None
 ):
