@@ -1,0 +1,61 @@
+# Python artifacts
+__pycache__/
+*.pyo
+*.pyd
+
+# Bytecode & static analysis
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+.pytype/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Logs & temp files
+logs/
+*.tmp
+
+# Secrets / env configs
+.env
+.env.*
+
+# Build & packaging
+dist/
+*.egg-info/
+.eggs/
+
+# Version control & IDE
+.git/
+.gitignore
+.dockerignore
+.idea/
+.vscode/
+*.iml
+
+# Alembic cache (not versions)
+alembic.ini
+# include alembic/versions only if you want to bundle migrations
+# otherwise exclude them too if you're mounting them separately
+# alembic/versions/
+
+# Database (SQLite only if used in local dev)
+*.sqlite3
+*.sqlite3-journal
+
+# Docker files (optional, if mounting from outside or CI/CD creates them)
+Dockerfile
+docker-compose.prod.yml
+
+# OS trash
+.DS_Store
+Thumbs.db
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+
+# Redis dump (if dumped locally)
+dump.rdb

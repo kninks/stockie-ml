@@ -1,0 +1,95 @@
+name: CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  build:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.build.outputs.image_tag }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up gcloud auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Configure Docker to use gcloud credentials
+        run: |
+          gcloud auth configure-docker --quiet
+
+      - name: Build & push Docker image
+        id: build
+        run: |
+          IMAGE_NAME=asia.gcr.io/${{ secrets.GCP_PROJECT_ID }}/stockie-ml
+          TAG=v1.0.${{ github.run_number }}-${{ github.sha }}
+
+          docker build -t $IMAGE_NAME:$TAG .
+          docker push $IMAGE_NAME:$TAG
+
+          echo "IMAGE_TAG=$TAG" >> $GITHUB_ENV
+          echo "::set-output name=image_tag::$TAG"
+
+      - name: Create and push Git tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag v1.0.${{ github.run_number }}-${{ github.sha }}
+          git push origin v1.0.${{ github.run_number }}-${{ github.sha }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    environment: prod
+    needs: build
+    if: success()
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up gcloud auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: stockie-ml
+          image: asia.gcr.io/${{ secrets.GCP_PROJECT_ID }}/stockie-ml:${{ needs.build.outputs.image_tag }}
+          region: asia-southeast1
+          env_vars: |
+            BACKEND_URL=${{ secrets.BACKEND_URL }}
+            DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}
+            BACKEND_API_KEY=${{ secrets.BACKEND_API_KEY }}
+            ML_SERVER_API_KEY=${{ secrets.ML_SERVER_API_KEY }}
+            DEBUG=${{ vars.DEBUG }}
+            LOG_LEVEL=${{ vars.LOG_LEVEL }}
+            ALLOWED_ORIGINS=${{ vars.ALLOWED_ORIGINS }}
+
+      - name: Notify Discord on Success
+        if: success()
+        run: |
+          curl -X POST -H "Content-Type: application/json" \
+          -d '{"content": "✅ Deployment succeeded for stockie-ml!\n\nDeployed Image: asia.gcr.io/${{ secrets.GCP_PROJECT_ID }}/stockie-ml:${{ needs.build.outputs.image_tag }}\nCommit: ${{ github.sha }}\nView it at: https://github.com/${{ github.repository }}/commit/${{ github.sha }}"}' \
+          ${{ secrets.DISCORD_DEPLOYMENT_WEBHOOK_URL }}
+
+      - name: Notify Discord on Failure
+        if: failure()
+        run: |
+          curl -X POST -H "Content-Type: application/json" \
+          -d '{"content": "❌ Deployment failed for stockie-ml!\n\nError: ${{ steps.deploy.outputs.error }}\nCommit: ${{ github.sha }}"}' \
+          ${{ secrets.DISCORD_DEPLOYMENT_WEBHOOK_URL }}
+
+          gcloud run services update stockie-ml --image asia.gcr.io/${{ secrets.GCP_PROJECT_ID }}/stockie-ml:<last-successful-image-tag> --region asia-southeast1
