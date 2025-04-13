@@ -6,7 +6,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
 from starlette.types import ExceptionHandler
 
-from app.api.routes import general_routes, predict_routes, save_routes
+from app.api.routes import general_routes, predict_routes
 from app.core.common.exceptions.custom_exceptions import CustomAPIError
 from app.core.common.exceptions.exception_handlers import (
     custom_api_exception_handler,
@@ -49,7 +49,6 @@ app.add_exception_handler(
 
 app.include_router(general_routes.router)
 app.include_router(predict_routes.router)
-app.include_router(save_routes.router)
 
 if __name__ == "__main__":
     uvicorn.run(

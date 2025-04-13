@@ -8,9 +8,7 @@ from app.core.enums.error_codes_enum import ErrorCodes
 logger = logging.getLogger(__name__)
 
 
-async def success_response(
-    data=None, message="Success", status_code=ErrorCodes.SUCCESS
-):
+def success_response(data=None, message="Success", status_code=ErrorCodes.SUCCESS):
     if isinstance(data, BaseModel):
         data = data.model_dump()
     elif isinstance(data, list) and all(isinstance(item, BaseModel) for item in data):
@@ -30,7 +28,8 @@ async def success_response(
     )
 
 
-async def error_response(
+
+def error_response(
     error_code: ErrorCodes, message="An error occurred", status_code=None
 ):
     if not isinstance(error_code, ErrorCodes):
