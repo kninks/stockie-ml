@@ -15,7 +15,6 @@ class Config:
             load_dotenv()
 
         self.BACKEND_URL = self._require_env("BACKEND_URL")
-        self.ML_SERVER_URL = self._require_env("ML_SERVER_URL")
         self.DISCORD_WEBHOOK_URL = self._require_env("DISCORD_WEBHOOK_URL")
 
         self.BACKEND_API_KEY = self._require_env("BACKEND_API_KEY")
