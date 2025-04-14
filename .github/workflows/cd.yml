@@ -69,6 +69,7 @@ jobs:
           service: stockie-ml
           image: asia.gcr.io/${{ secrets.GCP_PROJECT_ID }}/stockie-ml:${{ needs.build.outputs.image_tag }}
           region: asia-southeast1
+          flags: --memory=1Gi
           env_vars: |
             BACKEND_URL=${{ secrets.BACKEND_URL }}
             DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}
@@ -77,6 +78,12 @@ jobs:
             DEBUG=${{ vars.DEBUG }}
             LOG_LEVEL=${{ vars.LOG_LEVEL }}
             ALLOWED_ORIGINS=${{ vars.ALLOWED_ORIGINS }}
+
+      - name: Set memory limit for Cloud Run
+        run: |
+          gcloud run services update stockie-ml \
+            --memory=1Gi \
+            --region=asia-southeast1
 
       - name: Notify Discord on Success
         if: success()
