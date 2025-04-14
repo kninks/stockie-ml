@@ -64,6 +64,8 @@ jobs:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Deploy to Cloud Run
+        id: deploy
+        continue-on-error: true
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: stockie-ml
@@ -77,26 +79,38 @@ jobs:
             ML_SERVER_API_KEY=${{ secrets.ML_SERVER_API_KEY }}
             DEBUG=${{ vars.DEBUG }}
             LOG_LEVEL=${{ vars.LOG_LEVEL }}
-            ALLOWED_ORIGINS=${{ vars.ALLOWED_ORIGINS }}
-
-      - name: Set memory limit for Cloud Run
-        run: |
-          gcloud run services update stockie-ml \
-            --memory=1Gi \
-            --region=asia-southeast1
 
       - name: Notify Discord on Success
         if: success()
         run: |
           curl -X POST -H "Content-Type: application/json" \
-          -d '{"content": "✅ Deployment succeeded for stockie-ml!\n\nDeployed Image: asia.gcr.io/${{ secrets.GCP_PROJECT_ID }}/stockie-ml:${{ needs.build.outputs.image_tag }}\nCommit: ${{ github.sha }}\nView it at: https://github.com/${{ github.repository }}/commit/${{ github.sha }}"}' \
+          -d '{
+            "embeds": [{
+              "title": "✅ Deployment Succeeded: stockie-ml",
+              "color": 3066993,
+              "fields": [
+                { "name": "Image", "value": "asia.gcr.io/${{ secrets.GCP_PROJECT_ID }}/stockie-ml:${{ needs.build.outputs.image_tag }}", "inline": false },
+                { "name": "Commit", "value": "[`${{ github.sha }}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})", "inline": false },
+                { "name": "Run Logs", "value": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}", "inline": false }
+              ]
+            }]
+          }' \
           ${{ secrets.DISCORD_DEPLOYMENT_WEBHOOK_URL }}
 
       - name: Notify Discord on Failure
         if: failure()
         run: |
           curl -X POST -H "Content-Type: application/json" \
-          -d '{"content": "❌ Deployment failed for stockie-ml!\n\nError: ${{ steps.deploy.outputs.error }}\nCommit: ${{ github.sha }}"}' \
+          -d '{
+            "embeds": [{
+              "title": "❌ Deployment Failed: stockie-ml",
+              "color": 15158332,
+              "fields": [
+                { "name": "Commit", "value": "[`${{ github.sha }}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})", "inline": false },
+                { "name": "Run Logs", "value": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}", "inline": false }
+              ]
+            }]
+          }' \
           ${{ secrets.DISCORD_DEPLOYMENT_WEBHOOK_URL }}
 
           gcloud run services update stockie-ml --image asia.gcr.io/${{ secrets.GCP_PROJECT_ID }}/stockie-ml:<last-successful-image-tag> --region asia-southeast1
