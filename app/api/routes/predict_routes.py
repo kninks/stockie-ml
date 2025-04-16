@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import APIRouter, Depends
 
 from app.api.controllers.predict_controller import (
@@ -17,57 +19,55 @@ router = APIRouter(
 
 
 @router.post("")
-async def predict_route(
+async def get_predict_route(
     request: PredictRequestSchema,
     controller: PredictController = Depends(get_predict_controller),
 ):
-    """
-    Predict the closing price of a list of stocks with model path, scaler path, and closing prices using the ML model.
-    """
     response = await controller.predict_controller(request=request)
     return success_response(data=response)
 
 
 @router.post("/load-model")
-async def load_model_with_path_controller(
-    model_path: str,
+async def load_model_with_path_route(
+    model_url: str,
     controller: PredictController = Depends(get_predict_controller),
 ):
     """
     Load model with path.
     """
-    response = await controller.load_model_with_path_controller(model_path=model_path)
+    response = await controller.load_model_with_path_controller(model_url=model_url)
     return success_response(data=response, message="Model loaded successfully.")
 
 
 @router.post("/load-scaler")
-async def load_scaler_with_path_controller(
-    scaler_path: str,
+async def load_scaler_with_path_route(
+    scaler_url: str,
     controller: PredictController = Depends(get_predict_controller),
 ):
     """
     Load scaler with path.
     """
-    response = await controller.load_scaler_with_path_controller(
-        scaler_path=scaler_path
-    )
+    response = await controller.load_scaler_with_path_controller(scaler_url=scaler_url)
     return success_response(data=response, message="Scaler loaded successfully.")
 
 
-@router.post("/normalize-prices")
-async def normalize_prices_controller(
-    prices: list[float],
+@router.post("/normalize-trading-data")
+async def normalize_trading_data(
+    close: list[float],
+    volumes: Optional[list[float]] = None,
     controller: PredictController = Depends(get_predict_controller),
 ):
     """
     Normalize closing prices.
     """
-    response = await controller.normalize_prices_controller(prices=prices)
+    response = await controller.normalize_trading_data_controller(
+        close=close, volumes=volumes
+    )
     return success_response(data=response, message="Prices normalized successfully.")
 
 
 @router.post("/denormalize-prices")
-async def denormalize_prices_controller(
+async def denormalize_prices_route(
     normalized_prices: list[float],
     controller: PredictController = Depends(get_predict_controller),
 ):
@@ -81,14 +81,46 @@ async def denormalize_prices_controller(
 
 
 @router.post("/run-inference")
-async def run_inference(
+async def run_inference_route(
     normalized_closing_prices: list[list[float]],
+    days_ahead: int = 16,
     controller: PredictController = Depends(get_predict_controller),
 ):
     """
     Run inference on the model.
     """
     response = await controller.run_inference(
-        normalized_closing_prices=normalized_closing_prices
+        normalized_trading_data=normalized_closing_prices, days_ahead=days_ahead
     )
     return success_response(data=response, message="Inference run successfully.")
+
+
+@router.get("/active-info")
+async def get_active_info_route(
+    controller: PredictController = Depends(get_predict_controller),
+):
+    """
+    Get active model and scaler info.
+    """
+    response = controller.get_active_info_controller()
+    return success_response(data=response)
+
+
+@router.get("/cache-info")
+async def get_cache_info_route(
+    controller: PredictController = Depends(get_predict_controller),
+):
+    response = controller.get_cache_info_controller()
+    return success_response(data=response)
+
+
+@router.delete("/clear-cache")
+async def clear_cache_route(
+    model_url: Optional[str] = None,
+    scaler_url: Optional[str] = None,
+    controller: PredictController = Depends(get_predict_controller),
+):
+    response = controller.clear_cache_controller(
+        model_url=model_url, scaler_url=scaler_url
+    )
+    return success_response(data=response)
