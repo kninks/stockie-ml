@@ -1,14 +1,19 @@
 import logging
 import time
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 
-def log_start(task: str):
-    logger.info(f"[Start] {task}")
-    return time.perf_counter(), task
-
-
-def log_end(start_time: float, task: str):
+def log_elapsed(
+    start_time: float,
+    category: str,
+    task: str,
+    tags: Optional[list[str]] = None,
+    level: int = logging.INFO,
+):
     elapsed = time.perf_counter() - start_time
-    logger.info(f"[End] {task} | Elapsed: {elapsed:.3f}s")
+    tag_str = " ".join(f"[{tag}]" for tag in tags) if tags else ""
+
+    message = f"[{category}] {task} - Elapsed: {elapsed:.3f}s {tag_str}".strip()
+    logger.log(level, message)

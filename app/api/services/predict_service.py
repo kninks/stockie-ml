@@ -2,6 +2,7 @@ import hashlib
 import logging
 import os
 import pickle
+import time
 from typing import Optional
 
 import numpy as np
@@ -12,7 +13,7 @@ from app.api.schemas.predict_schema import (
     InferenceResultSchema,
     PredictRequestSchema,
 )
-from app.core.common.utils.time_logger import log_end, log_start
+from app.core.common.utils.time_logger import log_elapsed
 
 logger = logging.getLogger(__name__)
 
@@ -21,21 +22,13 @@ class PredictService:
     _model_cache = {}
     _scaler_cache = {}
 
-    _active_model = None
-    _active_model_url = None
-
-    _active_scaler = None
-    _active_scaler_url = None
-
     def __init__(self):
         pass
 
     async def predict(
         self, request: PredictRequestSchema
     ) -> list[InferenceResultSchema]:
-        start_time, task = log_start(
-            f"Request prediction for {len(request.stocks)} stocks"
-        )
+        start = time.perf_counter()
         response_list = []
 
         for stock in request.stocks:
@@ -65,7 +58,7 @@ class PredictService:
                     )
                 )
 
-        log_end(start_time, task)
+        log_elapsed(start_time=start, category="ML Predict", task="All predictions")
         return response_list
 
     async def predict_one(
@@ -76,17 +69,21 @@ class PredictService:
         close: list[float],
         volumes: Optional[list[int]] = None,
     ) -> list[float]:
-        await self.load_model_with_cache(model_url=model_path)
-        await self.load_scaler_with_cache(scaler_url=scaler_path)
+        model = await self.load_model_with_cache(model_url=model_path)
+        scaler = await self.load_scaler_with_cache(scaler_url=scaler_path)
 
         normalized_trading_data = await self.normalize_trading_data(
-            close=close, volumes=volumes
+            scaler=scaler, close=close, volumes=volumes
         )
         normalized_predicted_price = await self.run_inference(
+            model=model,
+            scaler=scaler,
             normalized_trading_data=normalized_trading_data,
             days_ahead=days_ahead,
         )
-        predicted = await self.denormalize_prices(normalized_predicted_price)
+        predicted = await self.denormalize_prices(
+            scaler=scaler, normalized_prices=normalized_predicted_price
+        )
 
         return predicted
 
@@ -96,19 +93,20 @@ class PredictService:
         hashed = hashlib.md5(url.encode()).hexdigest()
         return f"/tmp/{hashed}{ext}"
 
-    async def load_model_with_cache(self, model_url: str) -> None:
-        using_cache = model_url in self._model_cache
-        task = f"Loading model ({'cache' if using_cache else 'download'}): {model_url}"
-        start_time, task = log_start(task)
+    async def load_model_with_cache(self, model_url: str):
+        task = f"Loading model: {model_url}"
+        start = time.perf_counter()
 
         if not (model_url.endswith(".keras") or model_url.endswith(".h5")):
             raise ValueError("Invalid model format: must be .keras or .h5")
 
         if model_url in self._model_cache:
-            self._active_model = self._model_cache[model_url]
-            self._active_model_url = model_url
-
-            log_end(start_time, task)
+            log_elapsed(
+                start_time=start,
+                category="ML Predict",
+                task=task,
+                tags=["model", "cache"],
+            )
             return
 
         local_path = self._cached_path_from_url(model_url)
@@ -121,24 +119,27 @@ class PredictService:
 
         model = load_model(local_path)
         self._model_cache[model_url] = model
-        self._active_model = model
-        self._active_model_url = model_url
 
-        log_end(start_time, task)
-        return
-
-    async def load_scaler_with_cache(self, scaler_url: str) -> None:
-        using_cache = scaler_url in self._scaler_cache
-        task = (
-            f"Loading scaler ({'cache' if using_cache else 'download'}): {scaler_url}"
+        log_elapsed(
+            start_time=start,
+            category="ML Predict",
+            task=task,
+            tags=["model", "download"],
         )
-        start_time, task = log_start(task)
+        return model
+
+    async def load_scaler_with_cache(self, scaler_url: str):
+        task = f"Loading scaler: {scaler_url}"
+        start = time.perf_counter()
 
         if scaler_url in self._scaler_cache:
-            self._active_scaler = self._scaler_cache[scaler_url]
-            self._active_scaler_url = scaler_url
-            log_end(start_time, task)
-            return
+            log_elapsed(
+                start_time=start,
+                category="ML Predict",
+                task=task,
+                tags=["scaler", "cache"],
+            )
+            return self._scaler_cache[scaler_url]
 
         local_path = self._cached_path_from_url(scaler_url)
         if not os.path.exists(local_path):
@@ -152,18 +153,21 @@ class PredictService:
             scaler = pickle.load(f)
 
         self._scaler_cache[scaler_url] = scaler
-        self._active_scaler = scaler
-        self._active_scaler_url = scaler_url
 
-        log_end(start_time, task)
-        return
+        log_elapsed(
+            start_time=start,
+            category="ML Predict",
+            task=task,
+            tags=["scaler", "download"],
+        )
+        return scaler
 
+    @staticmethod
     async def normalize_trading_data(
-        self, close: list[float], volumes: Optional[list[int]] = None
+        scaler, close: list[float], volumes: Optional[list[int]] = None
     ) -> np.ndarray:
-        start_time, task = log_start("Normalizing trading data")
+        start = time.perf_counter()
 
-        scaler = self._active_scaler
         if scaler is None:
             raise ValueError("Scaler not loaded.")
         if len(close) < 60 or (volumes and len(volumes) != 60):
@@ -179,13 +183,18 @@ class PredictService:
         else:
             raise ValueError(f"Unsupported num_features: {num_features}")
 
-        log_end(start_time, task)
+        log_elapsed(
+            start_time=start,
+            category="ML Predict",
+            task="Normalizing prices",
+            tags=["scaler"],
+        )
         return scaler.transform(input_array).reshape(1, 60, num_features)
 
-    async def denormalize_prices(self, normalized_prices: list[float]) -> list[float]:
-        start_time, task = log_start("Denormalizing prices")
+    @staticmethod
+    async def denormalize_prices(scaler, normalized_prices: list[float]) -> list[float]:
+        start = time.perf_counter()
 
-        scaler = self._active_scaler
         if scaler is None:
             raise ValueError("Scaler not loaded.")
 
@@ -201,16 +210,23 @@ class PredictService:
         except Exception as e:
             raise RuntimeError(f"Error denormalizing: {e}")
 
-        log_end(start_time, task)
+        log_elapsed(
+            start_time=start,
+            category="ML Predict",
+            task="Denormalizing prices",
+            tags=["scaler"],
+        )
         return scaler.inverse_transform(padded)[:, 0].tolist()
 
+    @staticmethod
     async def run_inference(
-        self, normalized_trading_data: list[list[float]] | np.ndarray, days_ahead: int
+        model,
+        scaler,
+        normalized_trading_data: list[list[float]] | np.ndarray,
+        days_ahead: int,
     ) -> list[float]:
-        start_time, task = log_start("Running inference")
+        start = time.perf_counter()
 
-        model = self._active_model
-        scaler = self._active_scaler
         if model is None or scaler is None:
             raise ValueError("Model or scaler not loaded.")
 
@@ -229,14 +245,13 @@ class PredictService:
         except Exception as e:
             raise RuntimeError(f"Inference failed: {e}")
 
-        log_end(start_time, task)
+        log_elapsed(
+            start_time=start,
+            category="ML Predict",
+            task="Running inference",
+            tags=["model", "scaler"],
+        )
         return predictions
-
-    def get_active_info(self) -> dict:
-        return {
-            "active_model": self._active_model_url,
-            "active_scaler": self._active_scaler_url,
-        }
 
     def get_cache_info(self) -> dict:
         return {
