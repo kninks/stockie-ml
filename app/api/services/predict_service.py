@@ -39,6 +39,9 @@ class PredictService:
                     model_path=stock.model_path,
                     scaler_path=stock.scaler_path,
                     volumes=stock.volumes,
+                    high=stock.high,
+                    low=stock.low,
+                    open_p=stock.open,
                     days_ahead=request.days_ahead,
                 )
                 response_list.append(
@@ -59,7 +62,12 @@ class PredictService:
                     )
                 )
 
-            log_elapsed(start_time=start_stock, category="ML Predict", task="All predictions", tags=[stock.stock_ticker])
+            log_elapsed(
+                start_time=start_stock,
+                category="ML Predict",
+                task="All predictions",
+                tags=[stock.stock_ticker],
+            )
 
         log_elapsed(start_time=start, category="ML Predict", task="All predictions")
         return response_list
@@ -71,6 +79,9 @@ class PredictService:
         scaler_path: str,
         close: list[float],
         volumes: Optional[list[int]] = None,
+        high: Optional[list[float]] = None,
+        low: Optional[list[float]] = None,
+        open_p: Optional[list[float]] = None,
     ) -> list[float]:
         model = await self.load_model_with_cache(model_url=model_path)
         scaler = await self.load_scaler_with_cache(scaler_url=scaler_path)
@@ -97,20 +108,11 @@ class PredictService:
         return f"/tmp/{hashed}{ext}"
 
     async def load_model_with_cache(self, model_url: str):
-        # task = f"Loading model: {model_url}"
-        # start = time.perf_counter()
-
         if not (model_url.endswith(".keras") or model_url.endswith(".h5")):
             raise ValueError("Invalid model format: must be .keras or .h5")
 
         if model_url in self._model_cache:
-            # log_elapsed(
-            #     start_time=start,
-            #     category="ML Predict",
-            #     task=task,
-            #     tags=["model", "cache"],
-            # )
-            return
+            return self._model_cache[model_url]
 
         local_path = self._cached_path_from_url(model_url)
         if not os.path.exists(local_path):
@@ -123,25 +125,10 @@ class PredictService:
         model = load_model(local_path)
         self._model_cache[model_url] = model
 
-        # log_elapsed(
-        #     start_time=start,
-        #     category="ML Predict",
-        #     task=task,
-        #     tags=["model", "download"],
-        # )
         return model
 
     async def load_scaler_with_cache(self, scaler_url: str):
-        # task = f"Loading scaler: {scaler_url}"
-        # start = time.perf_counter()
-
         if scaler_url in self._scaler_cache:
-            # log_elapsed(
-            #     start_time=start,
-            #     category="ML Predict",
-            #     task=task,
-            #     tags=["scaler", "cache"],
-            # )
             return self._scaler_cache[scaler_url]
 
         local_path = self._cached_path_from_url(scaler_url)
@@ -156,21 +143,17 @@ class PredictService:
             scaler = pickle.load(f)
 
         self._scaler_cache[scaler_url] = scaler
-
-        # log_elapsed(
-        #     start_time=start,
-        #     category="ML Predict",
-        #     task=task,
-        #     tags=["scaler", "download"],
-        # )
         return scaler
 
     @staticmethod
     async def normalize_trading_data(
-        scaler, close: list[float], volumes: Optional[list[int]] = None
+        scaler,
+        close: list[float],
+        volumes: Optional[list[int]] = None,
+        high: Optional[list[float]] = None,
+        low: Optional[list[float]] = None,
+        open_p: Optional[list[float]] = None,
     ) -> np.ndarray:
-        # start = time.perf_counter()
-
         if scaler is None:
             raise ValueError("Scaler not loaded.")
         if len(close) < 60 or (volumes and len(volumes) != 60):
@@ -186,18 +169,10 @@ class PredictService:
         else:
             raise ValueError(f"Unsupported num_features: {num_features}")
 
-        # log_elapsed(
-        #     start_time=start,
-        #     category="ML Predict",
-        #     task="Normalizing prices",
-        #     tags=["scaler"],
-        # )
         return scaler.transform(input_array).reshape(1, 60, num_features)
 
     @staticmethod
     async def denormalize_prices(scaler, normalized_prices: list[float]) -> list[float]:
-        # start = time.perf_counter()
-
         if scaler is None:
             raise ValueError("Scaler not loaded.")
 
@@ -213,12 +188,6 @@ class PredictService:
         except Exception as e:
             raise RuntimeError(f"Error denormalizing: {e}")
 
-        # log_elapsed(
-        #     start_time=start,
-        #     category="ML Predict",
-        #     task="Denormalizing prices",
-        #     tags=["scaler"],
-        # )
         return scaler.inverse_transform(padded)[:, 0].tolist()
 
     @staticmethod
@@ -228,8 +197,6 @@ class PredictService:
         normalized_trading_data: list[list[float]] | np.ndarray,
         days_ahead: int,
     ) -> list[float]:
-        # start = time.perf_counter()
-
         if model is None or scaler is None:
             raise ValueError("Model or scaler not loaded.")
 
@@ -248,12 +215,6 @@ class PredictService:
         except Exception as e:
             raise RuntimeError(f"Inference failed: {e}")
 
-        # log_elapsed(
-        #     start_time=start,
-        #     category="ML Predict",
-        #     task="Running inference",
-        #     tags=["model", "scaler"],
-        # )
         return predictions
 
     def get_cache_info(self) -> dict:

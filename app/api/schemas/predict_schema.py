@@ -6,7 +6,10 @@ from pydantic import BaseModel
 class StockToPredictRequestSchema(BaseModel):
     stock_ticker: str
     close: list[float]
-    volumes: Optional[list[int]] = None
+    volumes: Optional[list[int]] = []
+    high: Optional[list[float]] = []
+    low: Optional[list[float]] = []
+    open: Optional[list[float]] = []
     model_path: str
     scaler_path: str
 
