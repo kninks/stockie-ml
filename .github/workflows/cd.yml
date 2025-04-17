@@ -71,7 +71,7 @@ jobs:
           service: stockie-ml
           image: asia.gcr.io/${{ secrets.GCP_PROJECT_ID }}/stockie-ml:${{ needs.build.outputs.image_tag }}
           region: asia-southeast1
-          flags: --memory=1Gi
+          flags: --memory=4Gi
           env_vars: |
             BACKEND_URL=${{ secrets.BACKEND_URL }}
             DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}

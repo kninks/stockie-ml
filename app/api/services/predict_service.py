@@ -32,6 +32,7 @@ class PredictService:
         response_list = []
 
         for stock in request.stocks:
+            start_stock = time.perf_counter()
             try:
                 predicted = await self.predict_one(
                     close=stock.close,
@@ -57,6 +58,8 @@ class PredictService:
                         error_message=str(e),
                     )
                 )
+
+            log_elapsed(start_time=start_stock, category="ML Predict", task="All predictions", tags=[stock.stock_ticker])
 
         log_elapsed(start_time=start, category="ML Predict", task="All predictions")
         return response_list
@@ -94,19 +97,19 @@ class PredictService:
         return f"/tmp/{hashed}{ext}"
 
     async def load_model_with_cache(self, model_url: str):
-        task = f"Loading model: {model_url}"
-        start = time.perf_counter()
+        # task = f"Loading model: {model_url}"
+        # start = time.perf_counter()
 
         if not (model_url.endswith(".keras") or model_url.endswith(".h5")):
             raise ValueError("Invalid model format: must be .keras or .h5")
 
         if model_url in self._model_cache:
-            log_elapsed(
-                start_time=start,
-                category="ML Predict",
-                task=task,
-                tags=["model", "cache"],
-            )
+            # log_elapsed(
+            #     start_time=start,
+            #     category="ML Predict",
+            #     task=task,
+            #     tags=["model", "cache"],
+            # )
             return
 
         local_path = self._cached_path_from_url(model_url)
@@ -120,25 +123,25 @@ class PredictService:
         model = load_model(local_path)
         self._model_cache[model_url] = model
 
-        log_elapsed(
-            start_time=start,
-            category="ML Predict",
-            task=task,
-            tags=["model", "download"],
-        )
+        # log_elapsed(
+        #     start_time=start,
+        #     category="ML Predict",
+        #     task=task,
+        #     tags=["model", "download"],
+        # )
         return model
 
     async def load_scaler_with_cache(self, scaler_url: str):
-        task = f"Loading scaler: {scaler_url}"
-        start = time.perf_counter()
+        # task = f"Loading scaler: {scaler_url}"
+        # start = time.perf_counter()
 
         if scaler_url in self._scaler_cache:
-            log_elapsed(
-                start_time=start,
-                category="ML Predict",
-                task=task,
-                tags=["scaler", "cache"],
-            )
+            # log_elapsed(
+            #     start_time=start,
+            #     category="ML Predict",
+            #     task=task,
+            #     tags=["scaler", "cache"],
+            # )
             return self._scaler_cache[scaler_url]
 
         local_path = self._cached_path_from_url(scaler_url)
@@ -154,19 +157,19 @@ class PredictService:
 
         self._scaler_cache[scaler_url] = scaler
 
-        log_elapsed(
-            start_time=start,
-            category="ML Predict",
-            task=task,
-            tags=["scaler", "download"],
-        )
+        # log_elapsed(
+        #     start_time=start,
+        #     category="ML Predict",
+        #     task=task,
+        #     tags=["scaler", "download"],
+        # )
         return scaler
 
     @staticmethod
     async def normalize_trading_data(
         scaler, close: list[float], volumes: Optional[list[int]] = None
     ) -> np.ndarray:
-        start = time.perf_counter()
+        # start = time.perf_counter()
 
         if scaler is None:
             raise ValueError("Scaler not loaded.")
@@ -183,17 +186,17 @@ class PredictService:
         else:
             raise ValueError(f"Unsupported num_features: {num_features}")
 
-        log_elapsed(
-            start_time=start,
-            category="ML Predict",
-            task="Normalizing prices",
-            tags=["scaler"],
-        )
+        # log_elapsed(
+        #     start_time=start,
+        #     category="ML Predict",
+        #     task="Normalizing prices",
+        #     tags=["scaler"],
+        # )
         return scaler.transform(input_array).reshape(1, 60, num_features)
 
     @staticmethod
     async def denormalize_prices(scaler, normalized_prices: list[float]) -> list[float]:
-        start = time.perf_counter()
+        # start = time.perf_counter()
 
         if scaler is None:
             raise ValueError("Scaler not loaded.")
@@ -210,12 +213,12 @@ class PredictService:
         except Exception as e:
             raise RuntimeError(f"Error denormalizing: {e}")
 
-        log_elapsed(
-            start_time=start,
-            category="ML Predict",
-            task="Denormalizing prices",
-            tags=["scaler"],
-        )
+        # log_elapsed(
+        #     start_time=start,
+        #     category="ML Predict",
+        #     task="Denormalizing prices",
+        #     tags=["scaler"],
+        # )
         return scaler.inverse_transform(padded)[:, 0].tolist()
 
     @staticmethod
@@ -225,7 +228,7 @@ class PredictService:
         normalized_trading_data: list[list[float]] | np.ndarray,
         days_ahead: int,
     ) -> list[float]:
-        start = time.perf_counter()
+        # start = time.perf_counter()
 
         if model is None or scaler is None:
             raise ValueError("Model or scaler not loaded.")
@@ -245,12 +248,12 @@ class PredictService:
         except Exception as e:
             raise RuntimeError(f"Inference failed: {e}")
 
-        log_elapsed(
-            start_time=start,
-            category="ML Predict",
-            task="Running inference",
-            tags=["model", "scaler"],
-        )
+        # log_elapsed(
+        #     start_time=start,
+        #     category="ML Predict",
+        #     task="Running inference",
+        #     tags=["model", "scaler"],
+        # )
         return predictions
 
     def get_cache_info(self) -> dict:
