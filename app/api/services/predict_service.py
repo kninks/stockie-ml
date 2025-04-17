@@ -87,7 +87,7 @@ class PredictService:
         scaler = await self.load_scaler_with_cache(scaler_url=scaler_path)
 
         normalized_trading_data = await self.normalize_trading_data(
-            scaler=scaler, close=close, volumes=volumes
+            scaler=scaler, close=close, volumes=volumes, high=high, low=low, open_p=open_p
         )
         normalized_predicted_price = await self.run_inference(
             model=model,
@@ -156,20 +156,29 @@ class PredictService:
     ) -> np.ndarray:
         if scaler is None:
             raise ValueError("Scaler not loaded.")
-        if len(close) < 60 or (volumes and len(volumes) != 60):
-            raise ValueError("Need at least 60 data points.")
 
         num_features = scaler.n_features_in_
         if num_features == 1:
-            input_array = np.array(close).reshape(-1, 1)
+            # Only close prices
+            if len(close) != 60:
+                raise ValueError("Expected 60 prices for input")
+            input_array = np.array(close).reshape(-1, 1)  # shape: (60, 1)
         elif num_features == 2:
-            if not volumes or len(volumes) != 60:
-                raise ValueError("Expected 60 volumes.")
-            input_array = np.column_stack((close, volumes))
+            # Close and Volume
+            if volumes is None or len(close) != 60 or len(volumes) != 60:
+                raise ValueError("Expected 60 prices and 60 volumes for input")
+            input_array = np.column_stack((close, volumes))  # shape: (60, 2)
+        elif num_features == 4:
+            if any(x is None for x in [volumes, high, low]):
+                raise ValueError("Expected volume, high, and low for 4-feature input")
+            if not all(len(lst) == 60 for lst in [close, volumes, high, low]):
+                raise ValueError("Expected 60 values for close, volume, high, and low")
+            input_array = np.column_stack((close, volumes, high, low))  # (60, 4)
         else:
             raise ValueError(f"Unsupported num_features: {num_features}")
 
-        return scaler.transform(input_array).reshape(1, 60, num_features)
+        normalized_closing_prices = scaler.transform(input_array)
+        return normalized_closing_prices.reshape(1, 60, num_features)
 
     @staticmethod
     async def denormalize_prices(scaler, normalized_prices: list[float]) -> list[float]:
