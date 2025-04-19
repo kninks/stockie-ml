@@ -13,7 +13,13 @@ from app.api.schemas.predict_schema import (
     InferenceResultSchema,
     PredictRequestSchema,
 )
+from app.core.common.utils.measurement import send_metric
 from app.core.common.utils.time_logger import log_elapsed
+from app.core.enums.measurement_enum import (
+    MeasurementMetric,
+    MeasurementTag,
+    MeasurementValue,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +39,7 @@ class PredictService:
 
         for stock in request.stocks:
             start_stock = time.perf_counter()
+            status = MeasurementValue.success
             try:
                 predicted = await self.predict_one(
                     close=stock.close,
@@ -61,6 +68,7 @@ class PredictService:
                         error_message=str(e),
                     )
                 )
+                status = MeasurementValue.fail
 
             log_elapsed(
                 start_time=start_stock,
@@ -69,7 +77,26 @@ class PredictService:
                 tags=[stock.stock_ticker],
             )
 
+            elapsed = time.perf_counter() - start_stock
+            send_metric(
+                metric=MeasurementMetric.total_predict_time,
+                value=elapsed,
+                tags={
+                    MeasurementTag.ticker: stock.stock_ticker,
+                    MeasurementTag.status: status,
+                },
+            )
+
         log_elapsed(start_time=start, category="ML Predict", task="All predictions")
+
+        elapsed = time.perf_counter() - start
+        send_metric(
+            metric=MeasurementMetric.total_predict_time,
+            value=elapsed,
+            tags={
+                MeasurementTag.ticker: "all",
+            },
+        )
         return response_list
 
     async def predict_one(
@@ -87,7 +114,12 @@ class PredictService:
         scaler = await self.load_scaler_with_cache(scaler_url=scaler_path)
 
         normalized_trading_data = await self.normalize_trading_data(
-            scaler=scaler, close=close, volumes=volumes, high=high, low=low, open_p=open_p
+            scaler=scaler,
+            close=close,
+            volumes=volumes,
+            high=high,
+            low=low,
+            open_p=open_p,
         )
         normalized_predicted_price = await self.run_inference(
             model=model,
@@ -111,13 +143,35 @@ class PredictService:
         if not (model_url.endswith(".keras") or model_url.endswith(".h5")):
             raise ValueError("Invalid model format: must be .keras or .h5")
 
+        start = time.perf_counter()
+
         if model_url in self._model_cache:
+            elapsed = time.perf_counter() - start
+            send_metric(
+                metric=MeasurementMetric.load_time,
+                value=elapsed,
+                tags={
+                    MeasurementTag.status: MeasurementValue.success,
+                    MeasurementTag.source: MeasurementValue.cache,
+                    MeasurementTag.file_type: MeasurementValue.model,
+                },
+            )
             return self._model_cache[model_url]
 
         local_path = self._cached_path_from_url(model_url)
         if not os.path.exists(local_path):
             response = requests.get(model_url)
             if response.status_code != 200:
+                elapsed = time.perf_counter() - start
+                send_metric(
+                    metric=MeasurementMetric.load_time,
+                    value=elapsed,
+                    tags={
+                        MeasurementTag.status: MeasurementValue.fail,
+                        MeasurementTag.source: MeasurementValue.download,
+                        MeasurementTag.file_type: MeasurementValue.model,
+                    },
+                )
                 raise RuntimeError(f"Failed to download model from {model_url}")
             with open(local_path, "wb") as f:
                 f.write(response.content)
@@ -125,16 +179,49 @@ class PredictService:
         model = load_model(local_path)
         self._model_cache[model_url] = model
 
+        elapsed = time.perf_counter() - start
+        send_metric(
+            metric=MeasurementMetric.load_time,
+            value=elapsed,
+            tags={
+                MeasurementTag.status: MeasurementValue.success,
+                MeasurementTag.source: MeasurementValue.download,
+                MeasurementTag.file_type: MeasurementValue.model,
+            },
+        )
+
         return model
 
     async def load_scaler_with_cache(self, scaler_url: str):
+        start = time.perf_counter()
+
         if scaler_url in self._scaler_cache:
+            elapsed = time.perf_counter() - start
+            send_metric(
+                metric=MeasurementMetric.load_time,
+                value=elapsed,
+                tags={
+                    MeasurementTag.status: MeasurementValue.success,
+                    MeasurementTag.source: MeasurementValue.cache,
+                    MeasurementTag.file_type: MeasurementValue.scaler,
+                },
+            )
             return self._scaler_cache[scaler_url]
 
         local_path = self._cached_path_from_url(scaler_url)
         if not os.path.exists(local_path):
             response = requests.get(scaler_url)
             if response.status_code != 200:
+                elapsed = time.perf_counter() - start
+                send_metric(
+                    metric=MeasurementMetric.load_time,
+                    value=elapsed,
+                    tags={
+                        MeasurementTag.status: MeasurementValue.fail,
+                        MeasurementTag.source: MeasurementValue.download,
+                        MeasurementTag.file_type: MeasurementValue.scaler,
+                    },
+                )
                 raise RuntimeError(f"Failed to download scaler from {scaler_url}")
             with open(local_path, "wb") as f:
                 f.write(response.content)
@@ -143,6 +230,17 @@ class PredictService:
             scaler = pickle.load(f)
 
         self._scaler_cache[scaler_url] = scaler
+
+        elapsed = time.perf_counter() - start
+        send_metric(
+            metric=MeasurementMetric.load_time,
+            value=elapsed,
+            tags={
+                MeasurementTag.status: MeasurementValue.success,
+                MeasurementTag.source: MeasurementValue.download,
+                MeasurementTag.file_type: MeasurementValue.scaler,
+            },
+        )
         return scaler
 
     @staticmethod
@@ -209,6 +307,8 @@ class PredictService:
         if model is None or scaler is None:
             raise ValueError("Model or scaler not loaded.")
 
+        start = time.perf_counter()
+
         try:
             sequence = np.array(normalized_trading_data).reshape(60, -1)
             predictions = []
@@ -221,10 +321,26 @@ class PredictService:
                 predictions.append(close_pred)
                 next_input = [close_pred] + [0.0] * (num_features - 1)
                 sequence = np.vstack([sequence, next_input])
-        except Exception as e:
-            raise RuntimeError(f"Inference failed: {e}")
 
-        return predictions
+            elapsed = time.perf_counter() - start
+            send_metric(
+                metric=MeasurementMetric.inference_time,
+                value=elapsed,
+                tags={
+                    MeasurementTag.status: MeasurementValue.success,
+                },
+            )
+            return predictions
+        except Exception as e:
+            elapsed = time.perf_counter() - start
+            send_metric(
+                metric=MeasurementMetric.inference_time,
+                value=elapsed,
+                tags={
+                    MeasurementTag.status: MeasurementValue.fail,
+                },
+            )
+            raise RuntimeError(f"Inference failed: {e}")
 
     def get_cache_info(self) -> dict:
         return {

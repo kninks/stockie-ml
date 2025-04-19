@@ -14,6 +14,7 @@ class Config:
         if os.getenv("ENVIRONMENT", "local") == "local":
             load_dotenv()
 
+        self.ENVIRONMENT = self._require_env("ENVIRONMENT")
         self.BACKEND_URL = self._require_env("BACKEND_URL")
         self.DISCORD_WEBHOOK_URL = self._require_env("DISCORD_WEBHOOK_URL")
 

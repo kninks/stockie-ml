@@ -73,6 +73,7 @@ jobs:
           region: asia-southeast1
           flags: --memory=4Gi
           env_vars: |
+            ENVIRONMENT=prod
             BACKEND_URL=${{ secrets.BACKEND_URL }}
             DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}
             BACKEND_API_KEY=${{ secrets.BACKEND_API_KEY }}
