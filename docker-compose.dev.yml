@@ -1,0 +1,12 @@
+#for development
+services:
+  backend:
+    build:
+      context: .
+    volumes:
+      - .:/app  # Allow live reload of code changes
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+    ports:
+      - "8001:8001"
+    env_file:
+      - .env
